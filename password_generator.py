@@ -1,13 +1,11 @@
-import os
 import time
-import logging
 import string
 import secrets
 from typing import List
 
 RATE_LIMIT_MAX = 15
 RATE_LIMIT_WINDOW = 60
-_user_requests = {}  # user_id -> timestamps
+_user_requests = {}
 
 DEFAULTS = {
     "simple": {"default": 8, "min": 4, "max": 32},
@@ -16,7 +14,6 @@ DEFAULTS = {
 }
 
 def check_rate_limit(user_id: int) -> bool:
-    """Простая защита от спама."""
     now = time.time()
     ts_list = _user_requests.get(user_id, [])
     ts_list = [t for t in ts_list if now - t < RATE_LIMIT_WINDOW]
@@ -29,7 +26,6 @@ def check_rate_limit(user_id: int) -> bool:
 
 
 def make_charset(level: str, exclude_ambiguous: bool = True) -> str:
-    """Возвращает набор символов для выбранного уровня сложности."""
     AMBIG = {'l', 'I', '1', 'O', '0'}
     lower = string.ascii_lowercase
     upper = string.ascii_uppercase
@@ -52,11 +48,9 @@ def make_charset(level: str, exclude_ambiguous: bool = True) -> str:
 
 
 def generate_password(level: str, length: int) -> str:
-    """Генерация безопасного пароля."""
     charset = make_charset(level)
     return ''.join(secrets.choice(charset) for _ in range(length))
 
 
 def generate_multiple_passwords(level: str, length: int, count: int = 3) -> List[str]:
-    """Генерация нескольких паролей."""
     return [generate_password(level, length) for _ in range(count)]

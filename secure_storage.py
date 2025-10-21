@@ -1,7 +1,6 @@
 import sqlite3
 import threading
 import base64
-import json
 from datetime import datetime
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
@@ -11,11 +10,10 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 class SecureStorage:
     def __init__(self, db_path: str = "passwords.db"):
         self.db_path = db_path
-        self.lock = threading.Lock()  # Для потокобезопасности
+        self.lock = threading.Lock()
         self.init_db()
     
     def init_db(self):
-        """Инициализация базы данных"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute('''
@@ -30,9 +28,8 @@ class SecureStorage:
             conn.commit()
     
     def generate_key_from_password(self, password: str) -> bytes:
-        """Создание ключа шифрования из пароля"""
         password_bytes = password.encode()
-        salt = b'salt_12345678'  # В реальном приложении используйте случайную соль
+        salt = b'salt_12345678'
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=32,
@@ -43,25 +40,19 @@ class SecureStorage:
         return key
     
     def encrypt_data(self, data: str, key: bytes) -> str:
-        """Шифрование данных"""
         f = Fernet(key)
         encrypted_bytes = f.encrypt(data.encode())
         return base64.urlsafe_b64encode(encrypted_bytes).decode()
 
     def decrypt_data(self, encrypted_data: str, key: bytes) -> str:
-        """Расшифровка данных"""
         f = Fernet(key)
         encrypted_bytes = base64.urlsafe_b64decode(encrypted_data.encode())
         decrypted_bytes = f.decrypt(encrypted_bytes)
         return decrypted_bytes.decode()
     
     def save_password(self, user_id: int, account: str, password: str):
-        """Сохранение зашифрованного пароля"""
         with self.lock:
-            # Создаем ключ на основе user_id
             key = self.generate_key_from_password(str(user_id))
-            
-            # Шифруем пароль
             encrypted_password = self.encrypt_data(password, key)
             
             with sqlite3.connect(self.db_path) as conn:
@@ -73,7 +64,6 @@ class SecureStorage:
                 conn.commit()
     
     def get_passwords(self, user_id: int):
-        """Получение расшифрованных паролей пользователя"""
         with self.lock:
             key = self.generate_key_from_password(str(user_id))
             
@@ -85,7 +75,6 @@ class SecureStorage:
                 )
                 rows = cursor.fetchall()
                 
-                # Расшифровываем пароли
                 result = []
                 for row in rows:
                     try:
@@ -97,7 +86,6 @@ class SecureStorage:
                         })
                     except Exception as e:
                         print(f"Error decrypting password for user {user_id}: {e}")
-                        # Возвращаем зашифрованный пароль как есть, если расшифровка не удалась
                         result.append({
                             "account": row[0],
                             "password": "[Ошибка при расшифровке]",
@@ -106,7 +94,6 @@ class SecureStorage:
                 return result
     
     def delete_all_passwords(self, user_id: int):
-        """Удаление всех паролей пользователя"""
         with self.lock:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
@@ -114,7 +101,6 @@ class SecureStorage:
                 conn.commit()
     
     def account_exists(self, user_id: int, account: str) -> bool:
-        """Проверка, существует ли уже учетная запись"""
         with self.lock:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()

@@ -1,16 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
-"""
-Telegram Password Generator Bot с шифрованием и базой данных
-Author: ChatGPT
-Requirements:
-  pip install python-telegram-bot==20.5 cryptography
-Usage:
-  export BOT_TOKEN="KEY"
-  python bot_with_secure_storage.py
-"""
-
 import os
 import time
 import logging
@@ -25,19 +12,16 @@ from telegram.ext import (
     filters,
 )
 
-# ============ НАСТРОЙКИ ============
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 if not BOT_TOKEN:
     raise RuntimeError("Bot token not found. Please set the BOT_TOKEN environment variable.")
 
-# Импортируем функции генерации из отдельного файла
 from password_generator import (
     check_rate_limit,
     DEFAULTS,
     generate_multiple_passwords
 )
 
-# Импортируем безопасное хранение из отдельного файла
 from secure_storage import SecureStorage
 
 logging.basicConfig(
@@ -45,16 +29,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ============ ИНИЦИАЛИЗАЦИЯ ============
-
-# Создаем экземпляр безопасного хранилища
 secure_storage = SecureStorage()
 
 
-# ============ УПРАВЛЕНИЕ УЧЕТНЫМИ ЗАПИСЯМИ ============
-
 async def save_password(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка сохранения учетной записи"""
     user = update.effective_user
     if not check_rate_limit(user.id):
         await update.message.reply_text("⚠️ Слишком много запросов. Попробуйте чуть позже.")
@@ -71,14 +49,12 @@ async def save_password(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         _, account, password = message_parts
         
-        # Проверка, не существует ли уже такая учетная запись
         if secure_storage.account_exists(user.id, account):
             await update.message.reply_text(
                 f"⚠️ Учетная запись '{account}' уже существует."
             )
             return
 
-        # Добавляем новую учетную запись в безопасное хранилище
         secure_storage.save_password(user.id, account, password)
         await update.message.reply_text(f"✅ Учетная запись '{account}' успешно сохранена!")
     except Exception as e:
@@ -87,7 +63,6 @@ async def save_password(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def my_passwords(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Отображение сохраненных учетных записей"""
     user = update.effective_user
     if not check_rate_limit(user.id):
         await update.message.reply_text("⚠️ Слишком много запросов. Попробуйте чуть позже.")
@@ -110,8 +85,6 @@ async def my_passwords(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Произошла ошибка при загрузке ваших паролей.")
 
 
-# ============ ОБРАБОТЧИКИ КОМАНД ============
-
 LEVELS = [("Простой 🔰", "simple"), ("Средний ⚙️", "medium"), ("Сложный 🔒", "strong")]
 
 
@@ -127,7 +100,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton(label, callback_data=f"gen:{code}") for label, code in LEVELS],
         [InlineKeyboardButton("🔐 Мои пароли", callback_data="my_passwords")],
-        [InlineKeyboardButton("✉️ Написать автору", url="https://t.me/bot_creator61")]
+        [InlineKeyboardButton("✉️ Группа ТГ", url="https://t.me/bot_creator161")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(text, reply_markup=reply_markup)
@@ -155,8 +128,6 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     keyboard = [
-        [InlineKeyboardButton("🔐 Генерировать пароль", callback_data="gen:simple")],
-        [InlineKeyboardButton("🔐 Мои пароли", callback_data="my_passwords")],
         [InlineKeyboardButton("🔙 Назад", callback_data="back_to_menu")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -165,7 +136,6 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def generate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка /simple /medium /strong"""
     user = update.effective_user
     if not check_rate_limit(user.id):
         await update.message.reply_text("⚠️ Слишком много запросов. Попробуйте чуть позже.")
@@ -179,7 +149,6 @@ async def generate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     level = cmd
     length = DEFAULTS[level]["default"]
 
-    # разбор длины, если указана
     parts = update.message.text.split()
     if len(parts) > 1:
         try:
@@ -188,7 +157,6 @@ async def generate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Длина должна быть числом.")
             return
 
-    # проверка диапазона
     if not (DEFAULTS[level]["min"] <= length <= DEFAULTS[level]["max"]):
         level_names = {"simple": "простой", "medium": "средний", "strong": "сложный"}
         level_name = level_names.get(level, level)
@@ -200,14 +168,12 @@ async def generate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         passwords = generate_multiple_passwords(level, length, 3)
         
-        # Создаем кнопки "Сгенерировать еще" и "Назад"
         keyboard = [
             [InlineKeyboardButton("🔄 Сгенерировать еще", callback_data=f"gen:{level}")],
             [InlineKeyboardButton("🔙 Назад", callback_data="back_to_menu")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        # Используем форматирование как в оригинальном bot.py
         pwd_list = "\n".join([f"`{pwd}`" for pwd in passwords])
         msg = f"🔐 Ваши пароли ({level}, длина {length}):\n\n{pwd_list}\n\nВыберите действие:"
         await update.message.reply_text(msg, reply_markup=reply_markup, parse_mode="Markdown")
@@ -217,7 +183,6 @@ async def generate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def callback_query_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Кнопки под сообщением"""
     query = update.callback_query
     await query.answer()
 
@@ -233,14 +198,12 @@ async def callback_query_handler(update: Update, context: ContextTypes.DEFAULT_T
             length = DEFAULTS[level]["default"]
             passwords = generate_multiple_passwords(level, length, 3)
             
-            # Создаем кнопки "Сгенерировать еще" и "Назад"
             keyboard = [
                 [InlineKeyboardButton("🔄 Сгенерировать еще", callback_data=f"gen:{level}")],
                 [InlineKeyboardButton("🔙 Назад", callback_data="back_to_menu")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
-            # Используем форматирование как в оригинальном bot.py
             pwd_list = "\n".join([f"`{pwd}`" for pwd in passwords])
             text = f"🔐 Сгенерированы пароли ({level}, длина {length}):\n\n{pwd_list}\n\nМожно указать длину: /{level} <число>"
             await query.edit_message_text(text, reply_markup=reply_markup, parse_mode="Markdown")
@@ -249,7 +212,6 @@ async def callback_query_handler(update: Update, context: ContextTypes.DEFAULT_T
             await query.edit_message_text("❌ Произошла ошибка при генерации паролей.")
     elif data == "back_to_menu":
         try:
-            # Возврат в главное меню
             text = (
                 "👋 Привет! Я бот для генерации безопасных паролей.\n\n"
                 "Я могу:\n"
@@ -261,17 +223,15 @@ async def callback_query_handler(update: Update, context: ContextTypes.DEFAULT_T
             keyboard = [
                 [InlineKeyboardButton(label, callback_data=f"gen:{code}") for label, code in LEVELS],
                 [InlineKeyboardButton("🔐 Мои пароли", callback_data="my_passwords")],
-                [InlineKeyboardButton("✉️ Написать автору", url="https://t.me/bot_creator61")]
+                [InlineKeyboardButton("✉️ Группа ТГ", url="https://t.me/bot_creator161")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             await query.edit_message_text(text, reply_markup=reply_markup)
         except Exception as e:
             logger.error(f"Error in back_to_menu handler: {e}")
-            # Отправляем простое сообщение без форматирования
             await query.edit_message_text("Ошибка при возврате в меню.")
     elif data == "my_passwords":
         try:
-            # Показываем сохраненные пароли
             passwords = secure_storage.get_passwords(query.from_user.id)
             
             if not passwords:
@@ -296,7 +256,6 @@ async def callback_query_handler(update: Update, context: ContextTypes.DEFAULT_T
             await query.edit_message_text("❌ Произошла ошибка при загрузке ваших паролей.")
     elif data == "clear_passwords":
         try:
-            # Подтверждение очистки
             keyboard = [
                 [InlineKeyboardButton("✅ Да, очистить", callback_data="confirm_clear")],
                 [InlineKeyboardButton("❌ Нет, вернуться", callback_data="my_passwords")]
@@ -308,7 +267,6 @@ async def callback_query_handler(update: Update, context: ContextTypes.DEFAULT_T
             await query.edit_message_text("❌ Произошла ошибка при подготовке подтверждения очистки.")
     elif data == "confirm_clear":
         try:
-            # Очистка всех данных
             secure_storage.delete_all_passwords(query.from_user.id)
             text = "🗑️ Все сохраненные учетные записи успешно удалены."
             keyboard = [
@@ -327,36 +285,29 @@ async def callback_query_handler(update: Update, context: ContextTypes.DEFAULT_T
 
 
 async def clear_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Удаление последних сообщений бота в чате"""
     user = update.effective_user
     if not check_rate_limit(user.id):
         await update.message.reply_text("⚠️ Слишком много запросов. Попробуйте чуть позже.")
         return
     
-    # Попробуем удалить последние 10 сообщений от бота
     chat_id = update.effective_message.chat_id
     
     try:
-        # Попробуем удалить 10 последних сообщений
         for message_id in range(update.effective_message.message_id - 1, 
                                 update.effective_message.message_id - 11, -1):
             try:
                 await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
             except Exception:
-                # Если не можем удалить сообщение, продолжаем с другим
                 continue
         
-        # Удалим команду /clear
         try:
             await context.bot.delete_message(chat_id=chat_id, message_id=update.effective_message.message_id)
         except Exception:
             pass
         
-        # Отправим временное сообщение о выполнении и сразу удалим его
         temp_msg = await update.message.reply_text("🗑️ Чат очищен...")
         await context.bot.delete_message(chat_id=chat_id, message_id=temp_msg.message_id)
     except Exception as e:
-        # Если не можем удалить, просто сообщим об этом
         await update.message.reply_text("⚠️ Не удалось очистить чат. Некоторые сообщения могут быть защищены от удаления.")
 
 
@@ -364,7 +315,6 @@ async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("❓ Не понял. Используйте /start для вызова меню.")
 
 
-# ============ ЗАПУСК ============
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
